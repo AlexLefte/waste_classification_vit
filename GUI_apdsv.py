@@ -8,9 +8,12 @@ from PyQt5.QtGui import QPixmap, QImage, QFont
 from PyQt5.QtCore import Qt, QTimer
 import torch
 from torchvision import transforms
+from safetensors.torch import load_file
 from PIL import Image
 from torchvision.models import vit_b_16
 import cv2
+from transformers import ViTForImageClassification, AutoImageProcessor, AutoModel, AutoConfig
+from src.test_inference import *
 
 class ViTClassifierApp(QMainWindow):
     def __init__(self):
@@ -20,8 +23,8 @@ class ViTClassifierApp(QMainWindow):
         self.setGeometry(100, 100, 1100, 800)
 
         self.init_ui()
-        self.model = self.load_vit_model()
-        self.transform = self.get_image_transform()
+        self.model = load_vit_model(model_path = "model.safetensors", num_labels = 10)
+        self.processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
 
         self.camera = None
         self.timer = QTimer()
@@ -176,24 +179,35 @@ class ViTClassifierApp(QMainWindow):
 
         try:
             # Load image and preprocess
-            image = Image.open(self.image_path).convert("RGB")
-            input_tensor = self.transform(image).unsqueeze(0)  # Add batch dimension
+            # image = Image.open(self.image_path).convert("RGB")
+            # input_tensor = self.transform(image).unsqueeze(0)  # Add batch dimension
 
-            # Perform inference
-            with torch.no_grad():
-                outputs = self.model(input_tensor)
-                _, predicted_class = outputs.max(1)
+            # # Perform inference
+            # with torch.no_grad():
+            #     outputs = self.model(input_tensor)
+            #     _, predicted_class = outputs.max(1)
+            predicted_class = predict_image(self.model, self.processor, self.image_path)
 
             # Map class index to label
-            class_label = self.get_class_label(predicted_class.item())
+            class_label = self.get_class_label(predicted_class)
             self.result_label.setText(f"Result: {class_label}")
         except Exception as e:
             self.result_label.setText(f"Error: {str(e)}")
 
     def get_class_label(self, class_index):
-        with open("imagenet_classes.txt", "r") as f:
-            labels = [line.strip() for line in f.readlines()]
-        return labels[class_index]
+        class_dict = {
+                0: "Ewaste",
+                1: "biological",
+                2: "cardboard",
+                3: "clothes",
+                4: "glass",
+                5: "metal",
+                6: "paper",
+                7: "plastic",
+                8: "shoes",
+                9: "trash"
+            }
+        return class_dict[class_index]
 
     def closeEvent(self, event):
         self.close_camera()
