@@ -17,7 +17,7 @@ class ViTClassifierApp(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("Waste Classification App")
-        self.setGeometry(100, 100, 1200, 800)
+        self.setGeometry(100, 100, 1100, 800)
 
         self.init_ui()
         self.model = self.load_vit_model()
@@ -32,6 +32,7 @@ class ViTClassifierApp(QMainWindow):
     def init_ui(self):
         # Main Layout
         self.main_widget = QWidget()
+        self.main_widget.setStyleSheet("background-color: #CEEDDB;")
         self.setCentralWidget(self.main_widget)
         self.layout = QVBoxLayout()
         self.layout.setContentsMargins(50, 50, 50, 50)
@@ -53,7 +54,7 @@ class ViTClassifierApp(QMainWindow):
         self.style_button(self.upload_button)
         button_layout.addWidget(self.upload_button)
 
-        self.capture_button = QPushButton("Capture and Classify")
+        self.capture_button = QPushButton("Capture Image")
         self.capture_button.clicked.connect(lambda: (self.access_camera() if self.camera is None else self.capture_and_classify()))
         self.capture_button.setEnabled(True)
         self.style_button(self.capture_button)
@@ -82,9 +83,10 @@ class ViTClassifierApp(QMainWindow):
             "    background-color: #bec5ad;"
             "    color: #0E402D;"
             "    border: none;"
-            "    padding: 10px 20px;"
+            "    padding: 13px 20px;"
             "    text-align: center;"
-            "    font-size: 12px;"
+            "    font-size: 14px;"
+            "    font-weight: bold;"
             "    margin: 4px 2px;"
             "    border-radius: 8px;"
             "}"
