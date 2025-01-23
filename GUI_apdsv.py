@@ -3,12 +3,13 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QLabel, QPushButton, QVBoxLayout, QWidget, QFileDialog,
     QHBoxLayout, QGraphicsPixmapItem, QGraphicsScene, QGraphicsView
 )
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtCore import Qt, QTimer
 import torch
 from torchvision import transforms
 from PIL import Image
 from torchvision.models import vit_b_16
+import cv2
 
 class ViTClassifierApp(QMainWindow):
     def __init__(self):
@@ -21,6 +22,11 @@ class ViTClassifierApp(QMainWindow):
         self.model = self.load_vit_model()
         self.transform = self.get_image_transform()
 
+        self.camera = None
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_frame)
+
+
     def init_ui(self):
         # Main Layout
         self.main_widget = QWidget()
@@ -28,7 +34,7 @@ class ViTClassifierApp(QMainWindow):
         self.layout = QVBoxLayout()
 
         # Image display
-        self.image_label = QLabel("No image loaded")
+        self.image_label = QLabel("No image loaded") 
         self.image_label.setAlignment(Qt.AlignCenter)
         self.image_label.setStyleSheet("border: 1px solid black;")
         self.layout.addWidget(self.image_label)
@@ -39,6 +45,10 @@ class ViTClassifierApp(QMainWindow):
         self.upload_button = QPushButton("Upload Image")
         self.upload_button.clicked.connect(self.upload_image)
         button_layout.addWidget(self.upload_button)
+
+        self.camera_button = QPushButton("Open Camera")
+        self.camera_button.clicked.connect(self.access_camera)
+        button_layout.addWidget(self.camera_button)
 
         self.classify_button = QPushButton("Classify Image")
         self.classify_button.clicked.connect(self.classify_image)
@@ -76,6 +86,27 @@ class ViTClassifierApp(QMainWindow):
             self.image_path = file_path
             self.classify_button.setEnabled(True)
 
+    def access_camera(self):
+        if self.camera is None:
+            self.camera = cv2.VideoCapture(0)
+            self.timer.start(30)  # Update every 30 ms
+
+    def update_frame(self):
+        if self.camera:
+            ret, frame = self.camera.read()
+            if ret:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                height, width, channel = frame.shape
+                qimg = QImage(frame.data, width, height, channel * width, QImage.Format_RGB888)
+                pixmap = QPixmap.fromImage(qimg)
+                self.image_label.setPixmap(pixmap.scaled(400, 400, Qt.KeepAspectRatio))
+
+    def close_camera(self):
+        if self.camera:
+            self.timer.stop()
+            self.camera.release()
+            self.camera = None
+
     def classify_image(self):
         if not hasattr(self, 'image_path'):
             self.result_label.setText("Error: No image uploaded.")
@@ -99,6 +130,11 @@ class ViTClassifierApp(QMainWindow):
         with open("imagenet_classes.txt", "r") as f:
             labels = [line.strip() for line in f.readlines()]
         return labels[class_index]
+    
+    def closeEvent(self, event):
+        self.close_camera()
+        super().closeEvent(event)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
