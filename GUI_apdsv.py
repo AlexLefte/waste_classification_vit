@@ -17,7 +17,7 @@ class ViTClassifierApp(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("Waste Classification App")
-        self.setGeometry(400, 400, 800, 600)
+        self.setGeometry(100, 100, 1200, 800)
 
         self.init_ui()
         self.model = self.load_vit_model()
@@ -38,11 +38,11 @@ class ViTClassifierApp(QMainWindow):
 
         # Image display
         self.image_label = QLabel("No image loaded") 
-        self.image_label.setMinimumSize(625, 500) 
+        self.image_label.setMinimumSize(600, 600) 
         self.image_label.setAlignment(Qt.AlignCenter)
         self.image_label.setStyleSheet("background-color: #8aa29e;")
         self.image_label.setFont(QFont("Times New Roman", 14))
-        self.image_label.setFixedSize(625, 500)
+        self.image_label.setFixedSize(600, 600)
         self.layout.addWidget(self.image_label, alignment=Qt.AlignCenter)
 
         # Buttons
@@ -112,7 +112,7 @@ class ViTClassifierApp(QMainWindow):
         if file_path:
             pixmap = QPixmap(file_path)
             if not pixmap.isNull():
-                self.image_label.setPixmap(pixmap.scaled(400, 400, Qt.KeepAspectRatio))
+                self.image_label.setPixmap(pixmap.scaled(600, 600, Qt.KeepAspectRatio))
                 self.image_path = file_path
                 self.classify_button.setEnabled(True)
 
@@ -137,7 +137,7 @@ class ViTClassifierApp(QMainWindow):
                 height, width, channel = frame_rgb.shape
                 qimg = QImage(frame_rgb.data, width, height, channel * width, QImage.Format_RGB888)
                 pixmap = QPixmap.fromImage(qimg)  # Correctly derive pixmap from qimg
-                self.image_label.setPixmap(pixmap.scaled(400, 400, Qt.KeepAspectRatio))
+                self.image_label.setPixmap(pixmap.scaled(600, 600, Qt.KeepAspectRatio))
 
     def close_camera(self):
         if self.camera:
@@ -158,7 +158,7 @@ class ViTClassifierApp(QMainWindow):
                 height, width, channel = frame_rgb.shape
                 qimg = QImage(frame_rgb.data, width, height, channel * width, QImage.Format_RGB888)
                 pixmap = QPixmap.fromImage(qimg)
-                self.image_label.setPixmap(pixmap.scaled(400, 400, Qt.KeepAspectRatio))
+                self.image_label.setPixmap(pixmap.scaled(600, 600, Qt.KeepAspectRatio))
                 self.timer.stop()  # Stop the camera updates
         else:
             self.close_camera()  # Reset on the third click
