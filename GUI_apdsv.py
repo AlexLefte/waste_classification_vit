@@ -1,9 +1,10 @@
 import sys
 from PyQt5.QtWidgets import (
+    QSizePolicy,
     QApplication, QMainWindow, QLabel, QPushButton, QVBoxLayout, QWidget, QFileDialog,
     QHBoxLayout
 )
-from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtGui import QPixmap, QImage, QFont
 from PyQt5.QtCore import Qt, QTimer
 import torch
 from torchvision import transforms
@@ -33,28 +34,35 @@ class ViTClassifierApp(QMainWindow):
         self.main_widget = QWidget()
         self.setCentralWidget(self.main_widget)
         self.layout = QVBoxLayout()
+        self.layout.setContentsMargins(50, 50, 50, 50)
 
         # Image display
         self.image_label = QLabel("No image loaded") 
+        self.image_label.setMinimumSize(625, 500) 
         self.image_label.setAlignment(Qt.AlignCenter)
-        self.image_label.setStyleSheet("border: 1px solid black;")
-        self.layout.addWidget(self.image_label)
+        self.image_label.setStyleSheet("background-color: #8aa29e;")
+        self.image_label.setFont(QFont("Times New Roman", 14))
+        self.image_label.setFixedSize(625, 500)
+        self.layout.addWidget(self.image_label, alignment=Qt.AlignCenter)
 
         # Buttons
         button_layout = QHBoxLayout()
 
         self.upload_button = QPushButton("Upload Image")
         self.upload_button.clicked.connect(self.upload_image)
+        self.style_button(self.upload_button)
         button_layout.addWidget(self.upload_button)
 
         self.capture_button = QPushButton("Capture and Classify")
         self.capture_button.clicked.connect(lambda: (self.access_camera() if self.camera is None else self.capture_and_classify()))
         self.capture_button.setEnabled(True)
+        self.style_button(self.capture_button)
         button_layout.addWidget(self.capture_button)
 
         self.classify_button = QPushButton("Classify Image")
         self.classify_button.clicked.connect(self.classify_image)
         self.classify_button.setEnabled(True)
+        self.style_button(self.classify_button)
         button_layout.addWidget(self.classify_button)
 
         self.layout.addLayout(button_layout)
@@ -62,9 +70,28 @@ class ViTClassifierApp(QMainWindow):
         # Rezultat clasificare
         self.result_label = QLabel("Result: N/A")
         self.result_label.setAlignment(Qt.AlignCenter)
+        self.result_label.setFont(QFont("Times New Roman", 14))
+        self.result_label.setStyleSheet("color: black; font-weight: bold;")
         self.layout.addWidget(self.result_label)
 
         self.main_widget.setLayout(self.layout)
+
+    def style_button(self, button):
+        button.setStyleSheet(
+            "QPushButton {"
+            "    background-color: #bec5ad;"
+            "    color: #0E402D;"
+            "    border: none;"
+            "    padding: 10px 20px;"
+            "    text-align: center;"
+            "    font-size: 12px;"
+            "    margin: 4px 2px;"
+            "    border-radius: 8px;"
+            "}"
+            "QPushButton:hover {"
+            "    background-color: #519872;"
+            "}"
+        )
 
     def load_vit_model(self):
         model = vit_b_16(pretrained=True)
