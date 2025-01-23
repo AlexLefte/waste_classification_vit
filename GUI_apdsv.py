@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QLabel, QPushButton, QVBoxLayout, QWidget, QFileDialog,
-    QHBoxLayout, QGraphicsPixmapItem, QGraphicsScene, QGraphicsView
+    QHBoxLayout
 )
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt, QTimer
@@ -16,7 +16,7 @@ class ViTClassifierApp(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("Waste Classification App")
-        self.setGeometry(200, 200, 800, 600)
+        self.setGeometry(400, 400, 800, 600)
 
         self.init_ui()
         self.model = self.load_vit_model()
@@ -25,7 +25,8 @@ class ViTClassifierApp(QMainWindow):
         self.camera = None
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frame)
-
+        self.capture_mode = False 
+        self.frame = None
 
     def init_ui(self):
         # Main Layout
@@ -46,18 +47,19 @@ class ViTClassifierApp(QMainWindow):
         self.upload_button.clicked.connect(self.upload_image)
         button_layout.addWidget(self.upload_button)
 
-        self.camera_button = QPushButton("Open Camera")
-        self.camera_button.clicked.connect(self.access_camera)
-        button_layout.addWidget(self.camera_button)
+        self.capture_button = QPushButton("Capture and Classify")
+        self.capture_button.clicked.connect(lambda: (self.access_camera() if self.camera is None else self.capture_and_classify()))
+        self.capture_button.setEnabled(True)
+        button_layout.addWidget(self.capture_button)
 
         self.classify_button = QPushButton("Classify Image")
         self.classify_button.clicked.connect(self.classify_image)
-        self.classify_button.setEnabled(False)
+        self.classify_button.setEnabled(True)
         button_layout.addWidget(self.classify_button)
 
         self.layout.addLayout(button_layout)
 
-        # Classification result
+        # Rezultat clasificare
         self.result_label = QLabel("Result: N/A")
         self.result_label.setAlignment(Qt.AlignCenter)
         self.layout.addWidget(self.result_label)
@@ -82,23 +84,32 @@ class ViTClassifierApp(QMainWindow):
 
         if file_path:
             pixmap = QPixmap(file_path)
-            self.image_label.setPixmap(pixmap.scaled(400, 400, Qt.KeepAspectRatio))
-            self.image_path = file_path
-            self.classify_button.setEnabled(True)
+            if not pixmap.isNull():
+                self.image_label.setPixmap(pixmap.scaled(400, 400, Qt.KeepAspectRatio))
+                self.image_path = file_path
+                self.classify_button.setEnabled(True)
 
     def access_camera(self):
         if self.camera is None:
             self.camera = cv2.VideoCapture(0)
-            self.timer.start(30)  # Update every 30 ms
+            if not self.camera.isOpened():
+                self.result_label.setText("Error: Camera cannot be accessed.")
+                self.camera = None
+                return
+
+            self.timer.start(1)  
+            self.capture_button.setEnabled(True)
+            print("Camera started.")
 
     def update_frame(self):
         if self.camera:
             ret, frame = self.camera.read()
             if ret:
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                height, width, channel = frame.shape
-                qimg = QImage(frame.data, width, height, channel * width, QImage.Format_RGB888)
-                pixmap = QPixmap.fromImage(qimg)
+                self.frame = frame  # Store the current frame
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                height, width, channel = frame_rgb.shape
+                qimg = QImage(frame_rgb.data, width, height, channel * width, QImage.Format_RGB888)
+                pixmap = QPixmap.fromImage(qimg)  # Correctly derive pixmap from qimg
                 self.image_label.setPixmap(pixmap.scaled(400, 400, Qt.KeepAspectRatio))
 
     def close_camera(self):
@@ -106,35 +117,58 @@ class ViTClassifierApp(QMainWindow):
             self.timer.stop()
             self.camera.release()
             self.camera = None
+            print("Camera closed.")
 
+    def capture_and_classify(self):
+        if self.camera is None:
+            self.access_camera()  # Open the camera on the first click
+            self.result_label.setText("Camera started. Click again to freeze the frame.")
+        elif not self.capture_mode:
+            self.capture_mode = True  # Freeze the frame on the second click
+            self.result_label.setText("Frame frozen. Click again to reset.")
+            if self.frame is not None:
+                frame_rgb = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
+                height, width, channel = frame_rgb.shape
+                qimg = QImage(frame_rgb.data, width, height, channel * width, QImage.Format_RGB888)
+                pixmap = QPixmap.fromImage(qimg)
+                self.image_label.setPixmap(pixmap.scaled(400, 400, Qt.KeepAspectRatio))
+                self.timer.stop()  # Stop the camera updates
+        else:
+            self.close_camera()  # Reset on the third click
+            self.image_label.setText("Camera reset. Click to start again.")
+            self.result_label.setText("Camera reset.")
+            self.capture_mode = False
+
+                    
     def classify_image(self):
         if not hasattr(self, 'image_path'):
             self.result_label.setText("Error: No image uploaded.")
             return
 
-        # Load image and preprocess
-        image = Image.open(self.image_path).convert("RGB")
-        input_tensor = self.transform(image).unsqueeze(0)  # Add batch dimension
+        try:
+            # Load image and preprocess
+            image = Image.open(self.image_path).convert("RGB")
+            input_tensor = self.transform(image).unsqueeze(0)  # Add batch dimension
 
-        # Perform inference
-        with torch.no_grad():
-            outputs = self.model(input_tensor)
-            _, predicted_class = outputs.max(1)
+            # Perform inference
+            with torch.no_grad():
+                outputs = self.model(input_tensor)
+                _, predicted_class = outputs.max(1)
 
-        # Map class index to label
-        class_label = self.get_class_label(predicted_class.item())
-        self.result_label.setText(f"Result: {class_label}")
+            # Map class index to label
+            class_label = self.get_class_label(predicted_class.item())
+            self.result_label.setText(f"Result: {class_label}")
+        except Exception as e:
+            self.result_label.setText(f"Error: {str(e)}")
 
     def get_class_label(self, class_index):
-        # Using ImageNet class labels
         with open("imagenet_classes.txt", "r") as f:
             labels = [line.strip() for line in f.readlines()]
         return labels[class_index]
-    
+
     def closeEvent(self, event):
         self.close_camera()
         super().closeEvent(event)
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
