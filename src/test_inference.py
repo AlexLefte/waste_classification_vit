@@ -1,6 +1,5 @@
 import torch
 from safetensors.torch import load_file
-from torchvision.models import vit_b_16  # Exemplu pentru un ViT predefinit
 from torchvision import transforms
 from PIL import Image
 import os
@@ -8,17 +7,17 @@ from transformers import ViTForImageClassification, AutoImageProcessor, AutoMode
 
 
 # Global dict
-class_dict = {
-    0: "battery",
-    1: "biological",
-    2: "cardboard",
-    3: "clothes",
-    4: "glass",
+class_names = {
+    0: "biologic",
+    1: "carton",
+    2: "haine",
+    3: "electronice",
+    4: "sticlă",
     5: "metal",
-    6: "paper",
+    6: "hârtie",
     7: "plastic",
-    8: "shoes",
-    9: "trash"
+    8: "pantofi",
+    9: "gunoaie"
 }
 
 # Load HuggingFace ViT model and processor

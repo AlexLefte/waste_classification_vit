@@ -1,0 +1,15 @@
+# Ignorăm fișierele temporare sau cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignorăm directoarele de date si experimentele
+dataset/
+data/
+experiments/
+output/
+results/
+
+# Ignorăm fișierele de configurare ale editorilor
+.vscode/
+.idea/

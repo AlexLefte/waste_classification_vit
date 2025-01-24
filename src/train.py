@@ -7,48 +7,13 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, models
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix
-import random
-import cv2
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm import tqdm
 import json
 import argparse
+from utils import *
 
-class CustomImageDataset(Dataset):
-    def __init__(self, root_dir, images, labels, transform=None):
-        self.root_dir = root_dir
-        self.images = images
-        self.labels = labels
-        self.transform = transform
-        
-    def __len__(self):
-        return len(self.images)
-    
-    def __getitem__(self, idx):
-        img_path = os.path.join(self.root_dir, self.images[idx])
-        image = cv2.imread(img_path)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        
-        if self.transform:
-            image = self.transform(image)
-        
-        return image, self.labels[idx]
-
-def prepare_dataset(root_dir, class_names):
-    # Collect all images and labels
-    images = []
-    labels = []
-    
-    for label, class_name in enumerate(class_names):
-        class_path = os.path.join(root_dir, class_name)
-        class_images = [os.path.join(class_name, img) for img in os.listdir(class_path) 
-                        if img.lower().endswith(('.png', '.jpg', '.jpeg'))]
-        random.shuffle(class_images)
-        images.extend(class_images)
-        labels.extend([label] * len(class_images))
-    
-    return images, labels
 
 def stratified_split(images, labels, test_size=0.1, val_size=0.1):
     # First split: train+val vs test
@@ -69,6 +34,7 @@ def stratified_split(images, labels, test_size=0.1, val_size=0.1):
     
     return X_train, X_val, X_test, y_train, y_val, y_test
 
+
 def save_splits(save_path, X_train, X_val, X_test, y_train, y_val, y_test):
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     splits = {
@@ -86,20 +52,6 @@ def load_splits(load_path):
     print(f"Splits loaded from {load_path}")
     return (splits['train']['images'], splits['val']['images'], splits['test']['images'],
             splits['train']['labels'], splits['val']['labels'], splits['test']['labels'])
-
-
-def plot_losses(train_losses, val_losses, exp_path):
-    plt.figure(figsize=(10, 6))
-    plt.plot(train_losses, label='Training Loss')
-    plt.plot(val_losses, label='Validation Loss')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.title('Training and Validation Loss')
-    plt.legend()
-    plt.grid()
-    plt.tight_layout()
-    plt.savefig(os.path.join(exp_path, 'loss_plot.png'))
-    plt.close()
 
 
 def train_model(model, dataloaders, criterion, optimizer, num_epochs=20, device='cpu', exp_path='experiments/experiment', model_name='best_model.pth'):   
@@ -177,7 +129,7 @@ def train_model(model, dataloaders, criterion, optimizer, num_epochs=20, device=
             print(f"New best model saved with Validation Loss: {best_val_loss:.4f}")        
 
     # Afiseaza graficul func'iilor de cost
-    plot_losses(train_losses, val_losses, exp_path)
+    save_losses_plot(train_losses, val_losses, exp_path)
 
     # Intoarce cel mai bun model
     if best_model_wts is not None:
@@ -205,16 +157,8 @@ def evaluate_model(model, dataloader, dataloader_name, class_names, exp_path):
     
     # Realizarea si salvarea matricei de confuzie
     cm = confusion_matrix(all_labels, all_preds)
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
-                xticklabels=class_names, 
-                yticklabels=class_names)
-    plt.title('Confusion Matrix')
-    plt.ylabel('True Label')
-    plt.xlabel('Predicted Label')
-    plt.tight_layout()
-    plt.savefig(os.path.join(exp_path, f'{dataloader_name}_cnf_matrix.png'))
-    plt.close()
+    cm_path = os.path.join(exp_path, f'{dataloader_name}_cnf_matrix.png')
+    save_confusion_matrix(cm, class_names, cm_path)
     
     # Realizarea si salvarea raportului de clasificare
     class_report = classification_report(all_labels, all_preds, target_names=class_names)
@@ -243,13 +187,7 @@ def main():
     os.makedirs(experiment_path, exist_ok=True)
 
     # Modifică transforms
-    transform = transforms.Compose([
-        transforms.ToPILImage(),
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225])
-    ])
+    transform = get_image_transform()
     
     # Path pentru split-uri
     class_names = sorted([d for d in os.listdir(data_path) if os.path.isdir(os.path.join(data_path, d))])
