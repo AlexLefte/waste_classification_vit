@@ -137,7 +137,7 @@ def train_model(model, dataloaders, criterion, optimizer, num_epochs=10, device=
 
     return model
 
-def evaluate_model(model, dataloader, dataloader_name, class_names, exp_path):
+def evaluate_model(model, dataloader, dataloader_name, exp_path):
     model.eval()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
@@ -156,6 +156,8 @@ def evaluate_model(model, dataloader, dataloader_name, class_names, exp_path):
             all_labels.extend(labels.cpu().numpy())
     
     # Realizarea si salvarea matricei de confuzie
+    class_names = get_class_dict()
+    class_names = list(class_names.values())
     cm = confusion_matrix(all_labels, all_preds)
     cm_path = os.path.join(exp_path, f'{dataloader_name}_cnf_matrix.png')
     save_confusion_matrix(cm, class_names, cm_path)
@@ -171,7 +173,7 @@ def main():
     parser = argparse.ArgumentParser(description="Train Vision Transformer on Custom Dataset")
     parser.add_argument("--exp_name", type=str, required=True, help="Name of the experiment")
     parser.add_argument("--data_path", type=str, default="dataset/images", help="Path towards the dataset")
-    parser.add_argument("--model_name", type=str, defualt="vit_b_16", 
+    parser.add_argument("--model_name", type=str, default="vit_b_16", 
                         choices=["vit_b_16", "vit_b_32", "vit_l_16", "vit_l_32"],
                         help="Vision Transformer model to use (from torchvision)")
     args = parser.parse_args()
@@ -191,7 +193,7 @@ def main():
     
     # Path pentru split-uri
     class_names = sorted([d for d in os.listdir(data_path) if os.path.isdir(os.path.join(data_path, d))])
-    splits_path = os.path.join(data_path, "dataset/splits.json")
+    splits_path = os.path.join(data_path, "splits.json")
     # Salvează sau încarcă split-urile
     if os.path.exists(splits_path):
         X_train, X_val, X_test, y_train, y_val, y_test = load_splits(splits_path)
@@ -234,7 +236,7 @@ def main():
 
     # Evaluare pe cele 3 seturi de date
     for mode, dl in dataloaders.items():
-        evaluate_model(trained_model, dl, mode, class_names, experiment_path)
+        evaluate_model(trained_model, dl, mode, experiment_path)
 
 if __name__ == '__main__':
     main()
