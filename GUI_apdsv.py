@@ -57,11 +57,11 @@ class ViTClassifierApp(QMainWindow):
 
         # Image display
         self.image_label = QLabel("No image loaded") 
-        self.image_label.setMinimumSize(600, 600) 
+        self.image_label.setMinimumSize(600, 480) 
         self.image_label.setAlignment(Qt.AlignCenter)
         self.image_label.setStyleSheet("background-color: #8aa29e;")
         self.image_label.setFont(QFont("Times New Roman", 14))
-        self.image_label.setFixedSize(600, 600)
+        self.image_label.setFixedSize(600, 480)
         self.layout.addWidget(self.image_label, alignment=Qt.AlignCenter)
 
         # Buttons
@@ -132,7 +132,8 @@ class ViTClassifierApp(QMainWindow):
         if file_path:
             pixmap = QPixmap(file_path)
             if not pixmap.isNull():
-                self.image_label.setPixmap(pixmap.scaled(600, 600, Qt.KeepAspectRatio))
+                self.frame = None
+                self.image_label.setPixmap(pixmap.scaled(600, 480, Qt.KeepAspectRatio))
                 self.image_path = file_path
                 self.classify_button.setEnabled(True)
 
@@ -152,12 +153,19 @@ class ViTClassifierApp(QMainWindow):
         if self.camera:
             ret, frame = self.camera.read()
             if ret:
-                self.frame = frame  # Store the current frame
+                # salveaza frame-ul curent
+                frame_temp = frame.copy()  # Store the current frame
+                h, w, _ = frame_temp.shape
+                start_x = (w - 480) // 2
+                start_y = (h - 480) // 2
+                self.frame = frame_temp[start_y:start_y+480, start_x:start_x+480]
+
+                # Afisare imagine in widget
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 height, width, channel = frame_rgb.shape
                 qimg = QImage(frame_rgb.data, width, height, channel * width, QImage.Format_RGB888)
                 pixmap = QPixmap.fromImage(qimg)  # Correctly derive pixmap from qimg
-                self.image_label.setPixmap(pixmap.scaled(600, 600, Qt.KeepAspectRatio))
+                self.image_label.setPixmap(pixmap.scaled(600, 480, Qt.KeepAspectRatio))
 
     def close_camera(self):
         if self.camera:
@@ -178,7 +186,7 @@ class ViTClassifierApp(QMainWindow):
                 height, width, channel = frame_rgb.shape
                 qimg = QImage(frame_rgb.data, width, height, channel * width, QImage.Format_RGB888)
                 pixmap = QPixmap.fromImage(qimg)
-                self.image_label.setPixmap(pixmap.scaled(600, 600, Qt.KeepAspectRatio))
+                self.image_label.setPixmap(pixmap.scaled(600, 480, Qt.KeepAspectRatio))
                 self.timer.stop()  # Stop the camera updates
         else:
             self.close_camera()  # Reset on the third click

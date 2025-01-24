@@ -59,7 +59,7 @@ def preprocess_image(image_path, processor):
     return inputs
 
 # Predict the class for a single image
-def predict_image(model, processor, image_path):
+def predict_image(model, processor, image):
     """
     Predict the class of a single image.
     :param model: Loaded ViT model
@@ -67,8 +67,9 @@ def predict_image(model, processor, image_path):
     :param image_path: Path to the input image
     :return: Predicted class
     """
-    inputs = preprocess_image(image_path, processor)
-    with torch.no_grad():
+    # inputs = preprocess_image(image_path, processor)
+    inputs = processor(images=image, return_tensors="pt")
+    with torch.inference_mode():
         outputs = model(**inputs)  # Perform inference
         predicted_class = torch.argmax(outputs.logits, dim=1).item()
     return predicted_class
