@@ -20,7 +20,7 @@ class ViTClassifierApp(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("Waste Classification App")
-        self.setGeometry(100, 100, 1100, 800)
+        self.setGeometry(100, 100, 900, 700)
 
         self.init_ui()
         try:
@@ -53,34 +53,38 @@ class ViTClassifierApp(QMainWindow):
         self.main_widget.setStyleSheet("background-color: #CEEDDB;")
         self.setCentralWidget(self.main_widget)
         self.layout = QVBoxLayout()
-        self.layout.setContentsMargins(50, 50, 50, 50)
+        self.layout.setContentsMargins(20, 20, 20, 20)
 
         # Image display
         self.image_label = QLabel("No image loaded") 
-        self.image_label.setMinimumSize(600, 480) 
+        self.image_label.setMinimumSize(480, 480) 
         self.image_label.setAlignment(Qt.AlignCenter)
         self.image_label.setStyleSheet("background-color: #8aa29e;")
         self.image_label.setFont(QFont("Times New Roman", 14))
-        self.image_label.setFixedSize(600, 480)
+        self.image_label.setFixedSize(480, 480)
         self.layout.addWidget(self.image_label, alignment=Qt.AlignCenter)
 
         # Buttons
         button_layout = QHBoxLayout()
+        button_layout.setSpacing(5)
 
         self.upload_button = QPushButton("Upload Image")
         self.upload_button.clicked.connect(self.upload_image)
+        self.upload_button.setFixedSize(160, 70)
         self.style_button(self.upload_button)
         button_layout.addWidget(self.upload_button)
 
         self.capture_button = QPushButton("Capture Image")
         self.capture_button.clicked.connect(lambda: (self.access_camera() if self.camera is None else self.capture_and_classify()))
         self.capture_button.setEnabled(True)
+        self.capture_button.setFixedSize(160, 70)
         self.style_button(self.capture_button)
         button_layout.addWidget(self.capture_button)
 
         self.classify_button = QPushButton("Classify Image")
         self.classify_button.clicked.connect(self.classify_image)
         self.classify_button.setEnabled(True)
+        self.classify_button.setFixedSize(160, 70)
         self.style_button(self.classify_button)
         button_layout.addWidget(self.classify_button)
 
@@ -101,12 +105,14 @@ class ViTClassifierApp(QMainWindow):
             "    background-color: #bec5ad;"
             "    color: #0E402D;"
             "    border: none;"
-            "    padding: 13px 20px;"
+            "    padding: 5px 5px;"
             "    text-align: center;"
             "    font-size: 14px;"
             "    font-weight: bold;"
-            "    margin: 4px 2px;"
-            "    border-radius: 8px;"
+            "    margin: 2px 2px;"
+            "    border-radius: 4px;"
+            "    margin-Left: 1px;"
+            "    margin-Right: 1px;"
             "}"
             "QPushButton:hover {"
             "    background-color: #519872;"
