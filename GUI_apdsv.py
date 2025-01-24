@@ -23,14 +23,29 @@ class ViTClassifierApp(QMainWindow):
         self.setGeometry(100, 100, 1100, 800)
 
         self.init_ui()
-        self.model = load_vit_model(model_path = "model.safetensors", num_labels = 10)
-        self.processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
-
+        try:
+         self.model = load_vit_model(model_path="model.safetensors", num_labels=10)
+        except Exception as e:
+            print(f"Error loading model: {str(e)}")
+            self.model = None
+        except Exception as e:
+            print(f"Error loading model: {str(e)}")
+            self.model = None       
+        try:
+            self.processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
+        except Exception as e:
+            print(f"Error loading processor: {str(e)}")
+            self.processor = None
+        except Exception as e:
+            print(f"Error loading processor: {str(e)}")
+            self.processor = None
+            
         self.camera = None
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frame)
         self.capture_mode = False 
         self.frame = None
+        self.image_path = None  # Initialize image_path
 
     def init_ui(self):
         # Main Layout
@@ -170,33 +185,52 @@ class ViTClassifierApp(QMainWindow):
             self.image_label.setText("Camera reset. Click to start again.")
             self.result_label.setText("Camera reset.")
             self.capture_mode = False
-
-                    
+            
     def classify_image(self):
-        if not hasattr(self, 'image_path'):
-            self.result_label.setText("Error: No image uploaded.")
-            return
-
         try:
-            # Load image and preprocess
-            # image = Image.open(self.image_path).convert("RGB")
-            # input_tensor = self.transform(image).unsqueeze(0)  # Add batch dimension
+            # Check if the model and processor are loaded
+            if self.model is None:
+                print("Debug: Model is not loaded.")
+                self.result_label.setText("Error: Model not loaded.")
+                return
+            if self.processor is None:
+                print("Debug: Processor is not loaded.")
+                self.result_label.setText("Error: Processor not loaded.")
+                return
 
-            # # Perform inference
-            # with torch.no_grad():
-            #     outputs = self.model(input_tensor)
-            #     _, predicted_class = outputs.max(1)
-            predicted_class = predict_image(self.model, self.processor, self.image_path)
+            # Check if a frame is frozen
+            if self.capture_mode and self.frame is not None:
+                print("Debug: Processing frozen frame.")
+                frame_rgb = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
+                image = Image.fromarray(frame_rgb)
+            elif self.image_path:
+                print("Debug: Processing uploaded image.")
+                # Load uploaded image
+                image = Image.open(self.image_path).convert("RGB")
+            else:
+                print("Debug: No image or frame available for classification.")
+                self.result_label.setText("Error: No image or frame to classify.")
+                return
+
+            # Predict using the model and processor
+            predicted_class = predict_image(self.model, self.processor, image)
 
             # Map class index to label
             class_label = self.get_class_label(predicted_class)
             self.result_label.setText(f"Result: {class_label}")
+        except FileNotFoundError:
+            print("Debug: Class label file not found.")
+            self.result_label.setText("Error: Class label file not found.")
+        except AttributeError as e:
+            print(f"Debug: Attribute error - {str(e)}")
+            self.result_label.setText("Error: Model or image processing attribute missing.")
         except Exception as e:
-            self.result_label.setText(f"Error: {str(e)}")
+            print(f"Unexpected error: {str(e)}")
+            self.result_label.setText("Error: An unexpected issue occurred during classification.")
 
     def get_class_label(self, class_index):
         class_dict = {
-                0: "Ewaste",
+                0: "battery",
                 1: "biological",
                 2: "cardboard",
                 3: "clothes",
