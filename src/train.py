@@ -54,7 +54,7 @@ def load_splits(load_path):
             splits['train']['labels'], splits['val']['labels'], splits['test']['labels'])
 
 
-def train_model(model, dataloaders, criterion, optimizer, num_epochs=20, device='cpu', exp_path='experiments/experiment', model_name='best_model.pth'):   
+def train_model(model, dataloaders, criterion, optimizer, num_epochs=10, device='cpu', exp_path='experiments/experiment', model_name='best_model.pth'):   
     # Resetarea celui mai bun model
     best_val_loss = float('inf')
     best_model_wts = None
@@ -191,13 +191,13 @@ def main():
     
     # Path pentru split-uri
     class_names = sorted([d for d in os.listdir(data_path) if os.path.isdir(os.path.join(data_path, d))])
-    splits_path = os.join(data_path, "dataset/splits.json")
+    splits_path = os.path.join(data_path, "dataset/splits.json")
     # Salvează sau încarcă split-urile
     if os.path.exists(splits_path):
         X_train, X_val, X_test, y_train, y_val, y_test = load_splits(splits_path)
     else:
         # Prepare dataset
-        images, labels = prepare_dataset(data_path)
+        images, labels = prepare_dataset(data_path, class_names)
 
         # Creează split-urile dacă nu există deja
         X_train, X_val, X_test, y_train, y_val, y_test = stratified_split(images, labels)
