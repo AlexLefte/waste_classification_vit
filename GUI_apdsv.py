@@ -10,13 +10,13 @@ import torch
 from torchvision import transforms
 from safetensors.torch import load_file
 from PIL import Image
-from torchvision.models import vit_b_16
+from src.utils import load_model, get_image_transform
 import cv2
-from transformers import ViTForImageClassification, AutoImageProcessor, AutoModel, AutoConfig
+import argparse
 from src.test_inference import *
 
 class ViTClassifierApp(QMainWindow):
-    def __init__(self):
+    def __init__(self, args):
         super().__init__()
 
         self.setWindowTitle("Waste Classification App")
@@ -24,7 +24,10 @@ class ViTClassifierApp(QMainWindow):
 
         self.init_ui()
         try:
-         self.model = load_vit_model(model_path="model.safetensors", num_labels=10)
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.model = load_model(args.model_path, args.model_name, self.device)
+            self.model.eval()
+            self.transform = get_image_transform()
         except Exception as e:
             print(f"Error loading model: {str(e)}")
             self.model = None
@@ -118,18 +121,6 @@ class ViTClassifierApp(QMainWindow):
             "    background-color: #519872;"
             "}"
         )
-
-    def load_vit_model(self):
-        model = vit_b_16(pretrained=True)
-        model.eval()
-        return model
-
-    def get_image_transform(self):
-        return transforms.Compose([
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ])
 
     def upload_image(self):
         options = QFileDialog.Options()
@@ -226,12 +217,18 @@ class ViTClassifierApp(QMainWindow):
                 self.result_label.setText("Error: No image or frame to classify.")
                 return
 
+            # Conversie imagine
+            img_tensor = self.transform(image).unsqueeze(0).to(self.device)
+
             # Predict using the model and processor
-            predicted_class = predict_image(self.model, self.processor, image)
+            with torch.inference_mode():
+                outputs = self.model(img_tensor)
+                prob, _ = torch.max(torch.nn.functional.softmax(outputs, dim=1), dim=1)
+                predicted_class = torch.argmax(outputs, 1).item()
 
             # Map class index to label
             class_label = self.get_class_label(predicted_class)
-            self.result_label.setText(f"Result: {class_label}")
+            self.result_label.setText(f"Result: {class_label} ({round(100 * prob.item(), 2)}).")
         except FileNotFoundError:
             print("Debug: Class label file not found.")
             self.result_label.setText("Error: Class label file not found.")
@@ -244,17 +241,17 @@ class ViTClassifierApp(QMainWindow):
 
     def get_class_label(self, class_index):
         class_dict = {
-                0: "battery",
-                1: "biological",
-                2: "cardboard",
-                3: "clothes",
-                4: "glass",
-                5: "metal",
-                6: "paper",
-                7: "plastic",
-                8: "shoes",
-                9: "trash"
-            }
+            0: "biologic",
+            1: "carton",
+            2: "haine",
+            3: "electronice",
+            4: "sticlă",
+            5: "metal",
+            6: "hârtie",
+            7: "plastic",
+            8: "pantofi",
+            9: "nereciclabil"
+        }
         return class_dict[class_index]
 
     def closeEvent(self, event):
@@ -262,7 +259,17 @@ class ViTClassifierApp(QMainWindow):
         super().closeEvent(event)
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="ViT Classifier App")
+    parser.add_argument('--model_path', type=str, required=True, help="Pre-trained model path")
+    parser.add_argument('--model_name', type=str, default="vit_b_16", 
+                        choices=["vit_b_16", "vit_b_32", "vit_l_16", "vit_l_32"],
+                        help="Pre-trained model to use (default: vit_b_16)")
+
+    # Parsează argumentele din linia de comandă
+    args = parser.parse_args()
+
+    # Crează aplicația PyQt
     app = QApplication(sys.argv)
-    window = ViTClassifierApp()
+    window = ViTClassifierApp(args)  # Transmite argumentele către fereastra aplicației
     window.show()
     sys.exit(app.exec_())

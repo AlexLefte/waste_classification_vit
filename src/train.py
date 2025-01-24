@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm import tqdm
 import json
+import argparse
 
 class CustomImageDataset(Dataset):
     def __init__(self, root_dir, images, labels, transform=None):
@@ -101,69 +102,66 @@ def plot_losses(train_losses, val_losses, exp_path):
     plt.close()
 
 
-def train_model(model, dataloaders, criterion, optimizer, num_epochs=20, device='cpu', exp_path='experiments/experiment', save_path='best_model.pth'):   
-    # Define best model
+def train_model(model, dataloaders, criterion, optimizer, num_epochs=20, device='cpu', exp_path='experiments/experiment', model_name='best_model.pth'):   
+    # Resetarea celui mai bun model
     best_val_loss = float('inf')
     best_model_wts = None
 
-    # Store losses
+    # Lista de functii de cost (pentru grafic)
     train_losses = []
     val_losses = []
 
-    # Iterate through the specified number of epochs
+    # Bucla de antrenare
     for epoch in range(num_epochs):
         print(f"Epoch {epoch + 1}/{num_epochs}")
         print("-" * 30)
 
-        # Training phase
+        # Antrenare
         model.train() 
         train_loss = 0.0
-
-        # Wrap the training loop in a tqdm progress bar
         for inputs, labels in tqdm(dataloaders['train'], desc="Training", leave=False):
-            # Move data to the appropriate device
+            # Comutarea datelor pe cpu/gpu
             inputs, labels = inputs.to(device), labels.to(device)
 
-            # Zero the gradients from the previous step
+            # Resetarea gradientilor
             optimizer.zero_grad()
 
-            # Forward pass
+            # Inferenta prin retea
             outputs = model(inputs)
             loss = criterion(outputs, labels)
 
-            # Backward pass and optimization
+            # Optimizarea parametrilor
             loss.backward()
             optimizer.step()
 
-            # Accumulate training loss
+            # Acumulare functie de cost
             train_loss += loss.item()
 
-        # Validation phase
-        model.eval()  # Set the model to evaluation mode
+        # Validare
+        model.eval()
         val_loss = 0.0
         correct = 0
         total = 0
 
-        # Disable gradient computation during validation for efficiency
+        # Dezactiveaza calculul gradientilor pe parcursul evaluarii
         with torch.inference_mode():
-            # Wrap the validation loop in a tqdm progress bar
             for inputs, labels in tqdm(dataloaders['val'], desc="Validation", leave=False):
-                # Move data to the appropriate device
+                # Comuta datele pe cpu/gpu
                 inputs, labels = inputs.to(device), labels.to(device)
 
-                # Forward pass
+                # Predictie
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
 
-                # Accumulate validation loss
+                # Acumulare functie de cost
                 val_loss += loss.item()
 
-                # Compute accuracy
+                # Calcul acuratete
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
 
-        # Calculate and print epoch statistics
+        # Calculeaza metricile pe setul de validare
         train_loss /= len(dataloaders['train'])
         val_loss /= len(dataloaders['val'])
         val_accuracy = 100 * correct / total
@@ -171,17 +169,17 @@ def train_model(model, dataloaders, criterion, optimizer, num_epochs=20, device=
         val_losses.append(val_loss)
         print(f"Training Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_accuracy:.2f}%")
 
-        # Save best model based on the loss
+        # Verifica cel mai bun model pe baza functiei de cost
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             best_model_wts = model.state_dict().copy()
-            torch.save(best_model_wts, save_path)
+            torch.save(best_model_wts, os.path.join(exp_path, model_name))
             print(f"New best model saved with Validation Loss: {best_val_loss:.4f}")        
 
-    # Plot loss curves
+    # Afiseaza graficul func'iilor de cost
     plot_losses(train_losses, val_losses, exp_path)
 
-    # Return best model
+    # Intoarce cel mai bun model
     if best_model_wts is not None:
         model.load_state_dict(best_model_wts)
 
@@ -195,7 +193,8 @@ def evaluate_model(model, dataloader, dataloader_name, class_names, exp_path):
     all_preds = []
     all_labels = []
     
-    with torch.no_grad():
+    # Perform prediction
+    with torch.inference_mode():
         for inputs, labels in dataloader:
             inputs, labels = inputs.to(device), labels.to(device)
             outputs = model(inputs)
@@ -204,7 +203,7 @@ def evaluate_model(model, dataloader, dataloader_name, class_names, exp_path):
             all_preds.extend(preds.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
     
-    # Confusion Matrix
+    # Realizarea si salvarea matricei de confuzie
     cm = confusion_matrix(all_labels, all_preds)
     plt.figure(figsize=(10, 8))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
@@ -217,41 +216,29 @@ def evaluate_model(model, dataloader, dataloader_name, class_names, exp_path):
     plt.savefig(os.path.join(exp_path, f'{dataloader_name}_cnf_matrix.png'))
     plt.close()
     
-    # Classification Report
+    # Realizarea si salvarea raportului de clasificare
     class_report = classification_report(all_labels, all_preds, target_names=class_names)
-    # Save the classification report to a text file
     with open(os.path.join(exp_path, f"{dataloader_name}_classification_report.txt"), "w") as file:
         file.write(class_report)
     print("\nClassification Report:\n", class_report)
 
 
-def min_max_normalize(image):
-    """
-    Normalizează imaginea la intervalul [0, 1]
-    
-    Args:
-        image (numpy.ndarray): Imagine color în format RGB
-    
-    Returns:
-        numpy.ndarray: Imagine normalizată
-    """
-    min_val = image.min()
-    max_val = image.max()
-    
-    # Evită împărțirea la zero
-    if min_val == max_val:
-        return np.zeros_like(image, dtype=np.float32)
-    
-    normalized = (image - min_val) / (max_val - min_val)
-    return normalized.astype(np.float32)
-
-
 def main():
-    # Configuration
-    root_dir = '/home/alex/Projects/Waste_project/dataset_final'  # Update this path
-    exp_name = 'base_vit_224_16'
+    parser = argparse.ArgumentParser(description="Train Vision Transformer on Custom Dataset")
+    parser.add_argument("--exp_name", type=str, required=True, help="Name of the experiment")
+    parser.add_argument("--data_path", type=str, default="dataset/images", help="Path towards the dataset")
+    parser.add_argument("--model_name", type=str, defualt="vit_b_16", 
+                        choices=["vit_b_16", "vit_b_32", "vit_l_16", "vit_l_32"],
+                        help="Vision Transformer model to use (from torchvision)")
+    args = parser.parse_args()
 
-    # Create experiment directory
+    # Parametri de configurare
+    data_path = args.data_path
+    exp_name = args.exp_name
+    model_name = args.model_name
+
+    # Creaza directorul de experimente
+    os.makedirs('experiments', exist_ok=True)
     experiment_path = os.path.join('experiments', exp_name)
     os.makedirs(experiment_path, exist_ok=True)
 
@@ -265,23 +252,23 @@ def main():
     ])
     
     # Path pentru split-uri
-    class_names = sorted([d for d in os.listdir(root_dir) if os.path.isdir(os.path.join(root_dir, d))])
-    splits_path = "dataset/splits.json"
+    class_names = sorted([d for d in os.listdir(data_path) if os.path.isdir(os.path.join(data_path, d))])
+    splits_path = os.join(data_path, "dataset/splits.json")
     # Salvează sau încarcă split-urile
     if os.path.exists(splits_path):
         X_train, X_val, X_test, y_train, y_val, y_test = load_splits(splits_path)
     else:
         # Prepare dataset
-        images, labels = prepare_dataset(root_dir)
+        images, labels = prepare_dataset(data_path)
 
         # Creează split-urile dacă nu există deja
         X_train, X_val, X_test, y_train, y_val, y_test = stratified_split(images, labels)
         save_splits(splits_path, X_train, X_val, X_test, y_train, y_val, y_test)
     
-    # Create datasets
-    train_dataset = CustomImageDataset(root_dir, X_train, y_train, transform)
-    val_dataset = CustomImageDataset(root_dir, X_val, y_val, transform)
-    test_dataset = CustomImageDataset(root_dir, X_test, y_test, transform)
+    # Create seturile de date si "data loaders"
+    train_dataset = CustomImageDataset(data_path, X_train, y_train, transform)
+    val_dataset = CustomImageDataset(data_path, X_val, y_val, transform)
+    test_dataset = CustomImageDataset(data_path, X_test, y_test, transform)
     
     # DataLoaders
     dataloaders = {
@@ -290,23 +277,24 @@ def main():
         'test': DataLoader(test_dataset, batch_size=32)
     }
     
-    # Model setup
-    model = models.vit_b_16(pretrained=True)
+    # Initializarea modelului
+    model_func = getattr(models, model_name)
+    model = model_func(pretrained=True)
     num_ftrs = model.heads.head.in_features
     model.heads.head = nn.Linear(num_ftrs, len(class_names))
     
-    # Loss and optimizer
+    # Definirea functiei de cost si a functiei de optimizare
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
-    # Check device
+    # Verificare disponibilitate gpu
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     
-    # Training
+    # Antrenare model
     trained_model = train_model(model, dataloaders, criterion, optimizer, device=device, exp_path=experiment_path)
 
-    # Evaluation
+    # Evaluare pe cele 3 seturi de date
     for mode, dl in dataloaders.items():
         evaluate_model(trained_model, dl, mode, class_names, experiment_path)
 
