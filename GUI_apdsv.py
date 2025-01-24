@@ -228,7 +228,7 @@ class ViTClassifierApp(QMainWindow):
 
             # Map class index to label
             class_label = self.get_class_label(predicted_class)
-            self.result_label.setText(f"Result: {class_label} ({round(100 * prob.item(), 2)}).")
+            self.result_label.setText(f"Result: {class_label} ({round(100 * prob.item(), 2)}%).")
         except FileNotFoundError:
             print("Debug: Class label file not found.")
             self.result_label.setText("Error: Class label file not found.")
