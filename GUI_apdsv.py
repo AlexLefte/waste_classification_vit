@@ -58,7 +58,7 @@ class ViTClassifierApp(QMainWindow):
         self.layout = QVBoxLayout()
         self.layout.setContentsMargins(20, 20, 20, 20)
 
-        # Image display
+        # Display
         self.image_label = QLabel("No image loaded") 
         self.image_label.setMinimumSize(480, 480) 
         self.image_label.setAlignment(Qt.AlignCenter)
@@ -67,7 +67,7 @@ class ViTClassifierApp(QMainWindow):
         self.image_label.setFixedSize(480, 480)
         self.layout.addWidget(self.image_label, alignment=Qt.AlignCenter)
 
-        # Buttons
+        # Butoane
         button_layout = QHBoxLayout()
         button_layout.setSpacing(5)
 
@@ -122,6 +122,7 @@ class ViTClassifierApp(QMainWindow):
             "}"
         )
 
+    # Incarcare imagine
     def upload_image(self):
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getOpenFileName(self, "Open Image File", "", "Image Files (*.png *.jpg *.jpeg *.bmp)", options=options)
@@ -134,6 +135,7 @@ class ViTClassifierApp(QMainWindow):
                 self.image_path = file_path
                 self.classify_button.setEnabled(True)
 
+    # Acceseaza camera
     def access_camera(self):
         if self.camera is None:
             self.camera = cv2.VideoCapture(0)
@@ -146,12 +148,13 @@ class ViTClassifierApp(QMainWindow):
             self.capture_button.setEnabled(True)
             print("Camera started.")
 
+    
     def update_frame(self):
         if self.camera:
             ret, frame = self.camera.read()
             if ret:
-                # salveaza frame-ul curent
-                frame_temp = frame.copy()  # Store the current frame
+                # Salveaza frame-ul curent
+                frame_temp = frame.copy()  # Retine o copie a frame-ului pentru procesare
                 h, w, _ = frame_temp.shape
                 start_x = (w - 480) // 2
                 start_y = (h - 480) // 2
@@ -163,7 +166,8 @@ class ViTClassifierApp(QMainWindow):
                 qimg = QImage(frame_rgb.data, width, height, channel * width, QImage.Format_RGB888)
                 pixmap = QPixmap.fromImage(qimg)  # Correctly derive pixmap from qimg
                 self.image_label.setPixmap(pixmap.scaled(600, 480, Qt.KeepAspectRatio))
-
+    
+    # Inchide camera
     def close_camera(self):
         if self.camera:
             self.timer.stop()
@@ -171,12 +175,13 @@ class ViTClassifierApp(QMainWindow):
             self.camera = None
             print("Camera closed.")
 
+    # Clasificare frame preluat din flux video
     def capture_and_classify(self):
         if self.camera is None:
-            self.access_camera()  # Open the camera on the first click
+            self.access_camera()  # Deschide camera daca nu este deja deschisa
             self.result_label.setText("Camera started. Click again to freeze the frame.")
         elif not self.capture_mode:
-            self.capture_mode = True  # Freeze the frame on the second click
+            self.capture_mode = True  # Pastrare cadru 
             self.result_label.setText("Frame frozen. Click again to reset.")
             if self.frame is not None:
                 frame_rgb = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
@@ -184,16 +189,16 @@ class ViTClassifierApp(QMainWindow):
                 qimg = QImage(frame_rgb.data, width, height, channel * width, QImage.Format_RGB888)
                 pixmap = QPixmap.fromImage(qimg)
                 self.image_label.setPixmap(pixmap.scaled(600, 480, Qt.KeepAspectRatio))
-                self.timer.stop()  # Stop the camera updates
+                self.timer.stop()  # Opreste actualizarea cadrelor
         else:
-            self.close_camera()  # Reset on the third click
+            self.close_camera()  # Resetare camera
             self.image_label.setText("Camera reset. Click to start again.")
             self.result_label.setText("Camera reset.")
             self.capture_mode = False
             
     def classify_image(self):
         try:
-            # Check if the model and processor are loaded
+            # Verifica daca modelul si procesorul sunt incarcate
             if self.model is None:
                 print("Debug: Model is not loaded.")
                 self.result_label.setText("Error: Model not loaded.")
@@ -203,14 +208,14 @@ class ViTClassifierApp(QMainWindow):
                 self.result_label.setText("Error: Processor not loaded.")
                 return
 
-            # Check if a frame is frozen
+            # Verifica daca a fost capturat un cadru 
             if self.capture_mode and self.frame is not None:
                 print("Debug: Processing frozen frame.")
                 frame_rgb = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
                 image = Image.fromarray(frame_rgb)
             elif self.image_path:
                 print("Debug: Processing uploaded image.")
-                # Load uploaded image
+                # Incarcare imagine
                 image = Image.open(self.image_path).convert("RGB")
             else:
                 print("Debug: No image or frame available for classification.")
@@ -220,13 +225,13 @@ class ViTClassifierApp(QMainWindow):
             # Conversie imagine
             img_tensor = self.transform(image).unsqueeze(0).to(self.device)
 
-            # Predict using the model and processor
+            # Clasificare imagine
             with torch.inference_mode():
                 outputs = self.model(img_tensor)
                 prob, _ = torch.max(torch.nn.functional.softmax(outputs, dim=1), dim=1)
                 predicted_class = torch.argmax(outputs, 1).item()
 
-            # Map class index to label
+            
             class_label = self.get_class_label(predicted_class)
             self.result_label.setText(f"Result: {class_label} ({round(100 * prob.item(), 2)}%).")
         except FileNotFoundError:
@@ -238,7 +243,8 @@ class ViTClassifierApp(QMainWindow):
         except Exception as e:
             print(f"Unexpected error: {str(e)}")
             self.result_label.setText("Error: An unexpected issue occurred during classification.")
-
+    
+    # Clase 
     def get_class_label(self, class_index):
         class_dict = {
             0: "biologic",
@@ -253,7 +259,8 @@ class ViTClassifierApp(QMainWindow):
             9: "nereciclabil"
         }
         return class_dict[class_index]
-
+ 
+    # Inchide camera la inchiderea aplicatiei
     def closeEvent(self, event):
         self.close_camera()
         super().closeEvent(event)
