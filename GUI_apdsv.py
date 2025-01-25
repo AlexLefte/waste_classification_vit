@@ -164,7 +164,7 @@ class ViTClassifierApp(QMainWindow):
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 height, width, channel = frame_rgb.shape
                 qimg = QImage(frame_rgb.data, width, height, channel * width, QImage.Format_RGB888)
-                pixmap = QPixmap.fromImage(qimg)  # Correctly derive pixmap from qimg
+                pixmap = QPixmap.fromImage(qimg)  # Converteste imaginea in format QPixmap
                 self.image_label.setPixmap(pixmap.scaled(600, 480, Qt.KeepAspectRatio))
     
     # Inchide camera
@@ -247,7 +247,7 @@ class ViTClassifierApp(QMainWindow):
     # Clase 
     def get_class_label(self, class_index):
         class_dict = {
-            0: "biologic",
+            0: "biodegradabil",
             1: "carton",
             2: "haine",
             3: "electronice",
