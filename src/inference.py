@@ -9,6 +9,7 @@ from PIL import Image
 from utils import *
 import argparse
 import math
+from time import time
 
 # Definirea clasei Dataset pentru încărcarea imaginilor
 class ImageDataset(Dataset):
@@ -28,6 +29,18 @@ class ImageDataset(Dataset):
         
         return image, img_path
 
+
+def load_images_from_subfolders(input_folder):
+    image_paths = []
+    # Recursiv, parcurge toate directoarele și subdirectoarele
+    for root, dirs, files in os.walk(input_folder):
+        for fname in files:
+            # Verifică dacă fișierul este o imagine (png, jpg, jpeg)
+            if fname.lower().endswith(('png', 'jpg', 'jpeg')):
+                image_paths.append(os.path.join(root, fname))  # Calea completă a imaginii
+    return image_paths
+
+
 # Funcția care încarcă modelul pre-antrenat și face inferența
 def inference(model, dataloader, device, class_names, save_csv=True, save_figures=True, output_folder='inference_output', max_images_per_fig=9):
     model.eval()
@@ -40,13 +53,18 @@ def inference(model, dataloader, device, class_names, save_csv=True, save_figure
     if save_csv:
         results = []
 
+    # Index figura
+    fig_index = 0
+
      # Realizează predicții
     with torch.inference_mode():
+        inf_time = []
         for inputs, paths in dataloader:
+            start = time()
             inputs = inputs.to(device)
             
             # Predicție
-            outputs = model(inputs)
+            outputs = model(inputs).logits
             probs, preds = torch.max(torch.nn.functional.softmax(outputs, dim=1), dim=1)
             
             for i, path in enumerate(paths):
@@ -91,9 +109,14 @@ def inference(model, dataloader, device, class_names, save_csv=True, save_figure
                                 axes[j].axis('off')
                                 
                             plt.tight_layout()
-                            figure_path = os.path.join(output_folder, f"predictions_{(i // max_images_per_fig) + 1}.png")
+                            figure_path = os.path.join(output_folder, f"predictions_{fig_index + 1}.png")
+                            fig_index += 1
                             plt.savefig(figure_path)
                             plt.close()
+            end = time()
+            inf_time.append(end - start)
+
+    print(f"Mean inference time: {np.mean(inf_time[10:])}")
 
     # Dacă se cere CSV, salvează rezultatele
     if save_csv:
@@ -109,9 +132,9 @@ def main():
     parser.add_argument('--input', type=str, help="Path to the folder with images to classify")
     parser.add_argument('--output_folder', type=str, default='output', help="Folder to save result images")
     parser.add_argument('--model_path', type=str, required=True, help="Pre-trained model path")
-    parser.add_argument('--model_name', type=str, default="vit_b_16", 
-                        choices=["vit_b_16", "vit_b_32", "vit_l_16", "vit_l_32"],
-                        help="Pre-trained model to use (default: vit_b_16)")
+    parser.add_argument('--model_name', type=str, default="vit-base-patch16-224", 
+                        choices=["vit-base-patch16-224", "vit-base-patch32-224-in21k", "vit-large-patch16-224", "vit-large-patch32-224-in21k"],
+                        help="Pre-trained model to use (default: vit-base-patch16-224)")
     parser.add_argument('--save_csv', action='store_true', help="Whether to save prediction as csv")
     parser.add_argument('--save_figures', action='store_true', help="Whether to save prediction images with titles")
 
@@ -129,10 +152,13 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Incarcarea modelului
-    model = load_model(model_path, model_name, device)
+    model = load_vit_model(model_path, model_name, num_labels=10)
+    model.to(device)
 
     # Încărcarea imaginilor din folderul de intrare
-    image_paths = [os.path.join(input_folder, fname) for fname in os.listdir(input_folder) if fname.lower().endswith(('png', 'jpg', 'jpeg'))]
+    # image_paths = [os.path.join(input_folder, fname) for fname in os.listdir(input_folder) if fname.lower().endswith(('png', 'jpg', 'jpeg'))]
+    image_paths = load_images_from_subfolders(input_folder)
+    random.shuffle(image_paths)
     
     # Definirea transformărilor pentru preprocesarea imaginilor
     transform = get_image_transform()

@@ -25,9 +25,13 @@ class ViTClassifierApp(QMainWindow):
         self.init_ui()
         try:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            self.model = load_model(args.model_path, args.model_name, self.device)
-            self.model.eval()
-            self.transform = get_image_transform()
+            # PyTorch
+            # self.model = load_model(args.model_path, args.model_name, self.device)
+            # self.model.eval()
+            # self.transform = get_image_transform()
+
+            # Huggingface
+            self.model = load_vit_model(model_path = args.model_path, model_name = args.model_name, num_labels = 10)
         except Exception as e:
             print(f"Error loading model: {str(e)}")
             self.model = None
@@ -35,7 +39,7 @@ class ViTClassifierApp(QMainWindow):
             print(f"Error loading model: {str(e)}")
             self.model = None       
         try:
-            self.processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
+            self.processor = AutoImageProcessor.from_pretrained(f"google/{args.model_name}")
         except Exception as e:
             print(f"Error loading processor: {str(e)}")
             self.processor = None
@@ -222,18 +226,12 @@ class ViTClassifierApp(QMainWindow):
                 self.result_label.setText("Error: No image or frame to classify.")
                 return
 
-            # Conversie imagine
-            img_tensor = self.transform(image).unsqueeze(0).to(self.device)
-
             # Clasificare imagine
-            with torch.inference_mode():
-                outputs = self.model(img_tensor)
-                prob, _ = torch.max(torch.nn.functional.softmax(outputs, dim=1), dim=1)
-                predicted_class = torch.argmax(outputs, 1).item()
+            predicted_class, prob = predict_image(self.model, self.processor, image)
 
-            
             class_label = self.get_class_label(predicted_class)
-            self.result_label.setText(f"Result: {class_label} ({round(100 * prob.item(), 2)}%).")
+            # self.result_label.setText(f"Result: {class_label} ({round(100 * prob.item(), 2)}%).")
+            self.result_label.setText(f"Result: {class_label} ({round(100 * prob, 2)}%).")
         except FileNotFoundError:
             print("Debug: Class label file not found.")
             self.result_label.setText("Error: Class label file not found.")
@@ -258,6 +256,7 @@ class ViTClassifierApp(QMainWindow):
             8: "pantofi",
             9: "nereciclabil"
         }
+
         return class_dict[class_index]
  
     # Inchide camera la inchiderea aplicatiei
@@ -268,8 +267,8 @@ class ViTClassifierApp(QMainWindow):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ViT Classifier App")
     parser.add_argument('--model_path', type=str, required=True, help="Pre-trained model path")
-    parser.add_argument('--model_name', type=str, default="vit_b_16", 
-                        choices=["vit_b_16", "vit_b_32", "vit_l_16", "vit_l_32"],
+    parser.add_argument('--model_name', type=str, default="vit-base-patch16-224", 
+                        choices=["vit-base-patch16-224", "vit-base-patch32-224-in21k", "vit-large-patch16-224", "vit-large-patch32-224-in21k"],
                         help="Pre-trained model to use (default: vit_b_16)")
 
     # Parsează argumentele din linia de comandă

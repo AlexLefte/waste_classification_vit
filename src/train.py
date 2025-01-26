@@ -16,22 +16,25 @@ from utils import *
 
 
 def stratified_split(images, labels, test_size=0.1, val_size=0.1):
-    # First split: train+val vs test
+    # Prima împărțire: separare între setul train+val și setul test
     X_train_val, X_test, y_train_val, y_test = train_test_split(
-        images, labels, 
-        test_size=test_size, 
-        stratify=labels, 
-        random_state=42
+        images,  # Căile imaginilor
+        labels,  # Etichetele asociate
+        test_size=test_size,  # Proporția datelor alocate pentru testare
+        stratify=labels,  # Menține distribuția proporțională a claselor
+        random_state=42  # Asigură reproducibilitatea rezultatelor
     )
     
-    # Second split: train vs val
+    # A doua împărțire: separare între setul de antrenare (train) și cel de validare (val)
     X_train, X_val, y_train, y_val = train_test_split(
-        X_train_val, y_train_val, 
-        test_size=val_size/(1-test_size), 
-        stratify=y_train_val, 
-        random_state=42
+        X_train_val,  # Datele de antrenare și validare
+        y_train_val,  # Etichetele asociate
+        test_size=val_size / (1 - test_size),  # Ajustează proporția pentru validare
+        stratify=y_train_val,  # Menține distribuția proporțională a claselor
+        random_state=42  # Asigură reproducibilitatea rezultatelor
     )
     
+    # Returnează seturile împărțite: train, val și test
     return X_train, X_val, X_test, y_train, y_val, y_test
 
 
