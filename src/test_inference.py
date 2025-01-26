@@ -22,27 +22,27 @@ class_names = {
 
 # Load HuggingFace ViT model and processor
 # Load the model and weights
-def load_vit_model(model_path, num_labels):
+def load_vit_model(model_path, model_name, num_labels):
     """
     Load a ViT model with weights from a .safetensors file.
     :param model_path: Path to the .safetensors file
     :param num_labels: Number of output classes
     :return: Loaded model
     """
-    # Initialize the configuration with the required number of labels
+    # Inițializează configurația cu numărul de etichete
     config = AutoConfig.from_pretrained(
-        "google/vit-base-patch16-224",  # Use the same base model used during training
+        f"google/{model_name}",  # Folosește același model de bază ca cel folosit în timpul antrenării
         num_labels=num_labels
     )
     
-    # Initialize the model with the custom configuration
+    # Inițializează modelul cu configurația personalizată
     model = ViTForImageClassification(config)
     
-    # Load weights from the .safetensors file
-    state_dict = load_file(model_path)
-    model.load_state_dict(state_dict)  # Load weights into the model
+    # Încarcă ponderile din fișierul .pth
+    state_dict = torch.load(model_path)  # Încarcă ponderile din fișierul .pth
+    model.load_state_dict(state_dict)  # Încarcă ponderile în model
     
-    model.eval()  # Set the model to evaluation mode
+    model.eval()  # Setează modelul în modul de evaluare
     return model
 
 # Image preprocessing using the AutoImageProcessor
@@ -71,7 +71,9 @@ def predict_image(model, processor, image):
     with torch.inference_mode():
         outputs = model(**inputs)  # Perform inference
         predicted_class = torch.argmax(outputs.logits, dim=1).item()
-    return predicted_class
+        probabilities = torch.softmax(outputs.logits, dim=1)
+        prob = probabilities[0, predicted_class].item()
+    return predicted_class, prob
 
 # Predict all images in a folder
 def predict_folder(model, processor, folder_path, output_file="predictions.txt"):
