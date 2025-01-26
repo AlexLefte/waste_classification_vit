@@ -10,7 +10,7 @@ import torch
 from torchvision import transforms
 from safetensors.torch import load_file
 from PIL import Image
-from src.utils import load_model, get_image_transform
+# from src.utils import load_vit_model, get_image_transform
 import cv2
 import argparse
 from src.test_inference import *
